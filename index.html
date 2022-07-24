@@ -22,7 +22,7 @@
         color: wheat;
         padding: 3px;
         white-space: pre;
-        font-size: 5px;
+        font-size: 11px;
       }
 
       textarea {
@@ -197,24 +197,30 @@
                 d.fx = d3.event.x;
                 d.fy = d3.event.y;
               })
+              // .on("end", function (d) {
+              //   d.fx = null;
+              //   d.fy = null;
+              // })
           );
 
         const simulation = d3.forceSimulation();
         simulation
+          .velocityDecay(0.2)
           .force("link", d3.forceLink())
           .force(
             "collide",
             d3
               .forceCollide()
               .radius(function (d) {
-                return 20 + Math.sqrt(d.sql.length) * 3;
+                return 270;
               })
-              .strength(0.9)
-              .iterations(3)
+              .strength(0.3)
+              .iterations(30)
           )
-          .force("charge", d3.forceManyBody().strength(-20000))
+          .force("charge", d3.forceManyBody().strength(-50000))
           .force("center", d3.forceCenter(2000, 2000))
-          .force("x", d3.forceX().x(1000).strength(0.3)).force("y", d3.forceY().y(1000).strength(0.3));
+          .force("collision", d3.forceCollide(200))  
+          .force("x", d3.forceX().x(1000).strength(0.7)).force("y", d3.forceY().y(1000).strength(0.7));
 
         simulation.nodes(nodes);
 

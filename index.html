@@ -22,6 +22,7 @@
         color: wheat;
         padding: 3px;
         white-space: pre;
+        font-size: 5px;
       }
 
       textarea {
@@ -109,13 +110,68 @@
         return result;
       }
 
+      const colors = [
+        "#9F1B34",
+        "#A21E1B",
+        "#A53B1B",
+        "#A84E0E",
+        "#AA6600",
+        "#A77B00",
+        "#A48F00",
+        "#918E00",
+        "#717D00",
+        "#147600",
+        "#006F3E",
+        "#00694E",
+        "#00625C",
+        "#005E69",
+        "#00526F",
+        "#004972",
+        "#004075",
+        "#1A3374",
+        "#343472",
+        "#482D69",
+        "#5A265F",
+        "#70245F",
+        "#811F4C",
+        "#901E43",
+      ];
+      const darkColors = [
+        "#642A2E",
+        "#6A2E28",
+        "#6F3826",
+        "#704020",
+        "#704B1A",
+        "#6E551B",
+        "#6B5E1B",
+        "#615C19",
+        "#535617",
+        "#235418",
+        "#185138",
+        "#0B4B3C",
+        "#004542",
+        "#00464C",
+        "#004252",
+        "#0A3A50",
+        "#14344E",
+        "#212B4E",
+        "#312E4D",
+        "#3A2C49",
+        "#422944",
+        "#512C46",
+        "#5D2D3F",
+        "#612C37",
+      ];
       function draw(nodes, links) {
         const link = d3
           .select("main")
           .selectAll("div")
           .data(links)
           .enter()
-          .append("div");
+          .append("div")
+          .style("background-color", function (d) {
+            return colors[d.target % colors.length];
+          });
 
         const node = d3
           .select("main")
@@ -123,8 +179,10 @@
           .data(nodes)
           .enter()
           .append("code")
+          .style("background-color", function (d) {
+            return darkColors[d.index % darkColors.length];
+          })
           .text(function (d) {
-            console.log(d)
             return d.sql;
           })
           .call(
@@ -149,24 +207,27 @@
             d3
               .forceCollide()
               .radius(function (d) {
-                return Math.sqrt(d.sql.length) * 5;
+                return 20 + Math.sqrt(d.sql.length) * 3;
               })
-              .strength(1.0)
-              .iterations(16)
+              .strength(0.9)
+              .iterations(3)
           )
-          .force("charge", d3.forceManyBody())
-          .force(
-            "center",
-            d3.forceCenter(main.clientWidth / 2, main.clientHeight / 2)
-          );
+          .force("charge", d3.forceManyBody().strength(-20000))
+          .force("center", d3.forceCenter(2000, 2000))
+          .force("x", d3.forceX().x(1000).strength(0.3)).force("y", d3.forceY().y(1000).strength(0.3));
 
         simulation.nodes(nodes);
 
-        simulation.force("link").links(links);
+        simulation
+          .force("link")
+          .links(links)
+          .distance(function (d) {
+            return 100;
+          });
 
-        simulation.on('tick', function() {
+        simulation.on("tick", function () {
           link
-            .style("left", function(d) {
+            .style("left", function (d) {
               const line = calcLine(d.source, d.target);
               return line.x - line.length / 2 + "px";
             })

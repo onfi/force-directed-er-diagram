@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Force Directed ER diagram</title>
+    <style>
+      * {
+        position: absolute;
+      }
+
+      div {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 1px;
+        width: 100px;
+        background: #000;
+      }
+
+      code {
+        background-color: black;
+        color: wheat;
+        padding: 3px;
+        white-space: pre;
+      }
+
+      textarea {
+        width: 70vw;
+        height: 70vh;
+      }
+    </style>
+  </head>
+
+  <body>
+    <button>DRAW</button>
+    <textarea placeholder="input DDL" style="top: 30px"></textarea>
+    <main style="width: 100vw; height: 100vh; display: none"></main>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="https://unpkg.com/mysqldump-ddl-parser@0.0.3/dist/mysqldump-ddl-parser.min.js"></script>
+    <script src="https://unpkg.com/pluralize@8.0.0/pluralize.js"></script>
+    <script>
+      const button = document.querySelector("button");
+      const textarea = document.querySelector("textarea");
+      const main = document.querySelector("main");
+      button.addEventListener("click", function () {
+        const tables = setIndex(MysqldumpDdlParser(textarea.value));
+        textarea.style.display = button.style.display = "none";
+        main.style.display = "block";
+        const relations = [];
+        Object.keys(tables).forEach((key) => {
+          const table = tables[key];
+          table.foreignKeys.forEach((fkey) => {
+            if (tables[fkey.referenceTable]) {
+              relations.push([table.index, tables[fkey.referenceTable].index]);
+            }
+          });
+          table.columns.forEach((column) => {
+            if (!column.name.endsWith("_id")) return;
+            const name = column.name.replace(/_id/, "");
+            const pluralizedName = pluralize(name);
+            let target = tables[pluralizedName] || tables[name];
+            if (target) {
+              relations.push([table.index, target.index]);
+            }
+          });
+        });
+        const nodes = [];
+        Object.keys(tables).forEach((key) => {
+          nodes[tables[key].index] = tables[key];
+        });
+        draw(
+          nodes,
+          relations.map((link) => ({
+            source: link[0],
+            target: link[1],
+          }))
+        );
+      });
+
+      function setIndex(obj) {
+        const result = Object.assign({}, obj);
+        const keys = Object.keys(obj);
+        for (let i = 0; i < keys.length; i++) {
+          result[keys[i]].index = i;
+        }
+        return obj;
+      }
+
+      const lineCache = {};
+      function calcLine(a, b) {
+        if (lineCache[`${a.x}:${a.y}:${b.x}:${b.y}`])
+          return lineCache[`${a.x}:${a.y}:${b.x}:${b.y}`];
+        const source = Object.assign({}, a.x < b.x ? a : b);
+        const target = Object.assign({}, a.x < b.x ? b : a);
+        source.x += 150;
+        source.y += 50;
+        target.x += 150;
+        target.y += 50;
+        const w = target.x - source.x;
+        const h = target.y - source.y;
+
+        const result = {
+          x: source.x,
+          y: source.y,
+          length: Math.sqrt(w * w + h * h),
+          deg: (Math.atan2(h, w) * 360) / (2 * Math.PI),
+        };
+        lineCache[`${a.x}:${a.y}:${b.x}:${b.y}`] = result;
+        return result;
+      }
+
+      function draw(nodes, links) {
+        const link = d3
+          .select("main")
+          .selectAll("div")
+          .data(links)
+          .enter()
+          .append("div");
+
+        const node = d3
+          .select("main")
+          .selectAll("code")
+          .data(nodes)
+          .enter()
+          .append("code")
+          .text(function (d) {
+            console.log(d)
+            return d.sql;
+          })
+          .call(
+            d3
+              .drag()
+              .on("start", function (d) {
+                if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+              })
+              .on("drag", function (d) {
+                d.fx = d3.event.x;
+                d.fy = d3.event.y;
+              })
+          );
+
+        const simulation = d3.forceSimulation();
+        simulation
+          .force("link", d3.forceLink())
+          .force(
+            "collide",
+            d3
+              .forceCollide()
+              .radius(function (d) {
+                return Math.sqrt(d.sql.length) * 5;
+              })
+              .strength(1.0)
+              .iterations(16)
+          )
+          .force("charge", d3.forceManyBody())
+          .force(
+            "center",
+            d3.forceCenter(main.clientWidth / 2, main.clientHeight / 2)
+          );
+
+        simulation.nodes(nodes);
+
+        simulation.force("link").links(links);
+
+        simulation.on('tick', function() {
+          link
+            .style("left", function(d) {
+              const line = calcLine(d.source, d.target);
+              return line.x - line.length / 2 + "px";
+            })
+            .style("top", function (d) {
+              const line = calcLine(d.source, d.target);
+              return line.y + "px";
+            })
+            .style("width", function (d) {
+              const line = calcLine(d.source, d.target);
+              return `${line.length}px`;
+            })
+            .style("transform", function (d) {
+              const line = calcLine(d.source, d.target);
+              return `rotateZ(${line.deg}deg) translate(${line.length / 2}px)`;
+            });
+          node
+            .style("left", function (d) {
+              return `${d.x}px`;
+            })
+            .style("top", function (d) {
+              return `${d.y}px`;
+            });
+        });
+      }
+    </script>
+  </body>
+</html>

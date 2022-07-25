@@ -33,18 +33,61 @@
   </head>
 
   <body>
-    <button>DRAW</button>
+    <header style="width: 100vw; height: 100vh;"></header>
+    <button>DRAW</button><label style="left: 100px;"><input type="checkbox" id="oracle" value="oracle" style="left: -20px;"> oracle</label>
     <textarea placeholder="input DDL" style="top: 30px"></textarea>
     <main style="width: 100vw; height: 100vh; display: none"></main>
     <script src="https://d3js.org/d3.v5.min.js"></script>
-    <script src="https://unpkg.com/mysqldump-ddl-parser@0.0.3/dist/mysqldump-ddl-parser.min.js"></script>
+    <script src="mysqldump-ddl-parser.min.js"></script>
     <script src="https://unpkg.com/pluralize@8.0.0/pluralize.js"></script>
     <script>
       const button = document.querySelector("button");
       const textarea = document.querySelector("textarea");
       const main = document.querySelector("main");
+      const body = document.querySelector("body");
+      const zoom = {
+        zoom: 1,
+        x: 0,
+        y: 0,
+        prev: {
+          x: null,
+          y: null
+        }
+      };
+      function setZoom() {
+        main.style.transform = `translate(${zoom.x}px, ${zoom.y}px) scale(${zoom.zoom})`;
+      }
+      body.addEventListener('wheel', function(event){
+        zoom.zoom = zoom.zoom * (1 - (event.deltaY / Math.abs(event.deltaY) / 10));
+        setZoom();
+      });
+      function resetMoveState(event){
+        zoom.prev.x = event.x;
+        zoom.prev.y = event.y;
+      }
+      function move(event){
+        if(zoom.prev.x) {
+          zoom.x = zoom.x + event.x - zoom.prev.x;
+          zoom.y = zoom.y + event.y - zoom.prev.y;
+          resetMoveState(event);
+          setZoom();
+        }
+      }
+      function finishMove(event){
+        zoom.prev.x = null;
+        zoom.prev.y = null;
+      }
+      body.addEventListener('mousedown', resetMoveState);
+      body.addEventListener('mousemove', move);
+      body.addEventListener('mouseup', finishMove);
       button.addEventListener("click", function () {
-        const tables = setIndex(MysqldumpDdlParser(textarea.value));
+        let tables;
+        if(document.querySelector('#oracle').value) {
+          MysqldumpDdlParser(textarea.value, 'oracle');
+        } else {
+          MysqldumpDdlParser(textarea.value);
+        }
+        tables = setIndex(tables);
         textarea.style.display = button.style.display = "none";
         main.style.display = "block";
         const relations = [];
@@ -83,20 +126,21 @@
         const keys = Object.keys(obj);
         for (let i = 0; i < keys.length; i++) {
           result[keys[i]].index = i;
+          result[keys[i]].open = false;
+          result[keys[i]].focus = false;
         }
         return obj;
       }
 
-      const lineCache = {};
       function calcLine(a, b) {
-        if (lineCache[`${a.x}:${a.y}:${b.x}:${b.y}`])
-          return lineCache[`${a.x}:${a.y}:${b.x}:${b.y}`];
         const source = Object.assign({}, a.x < b.x ? a : b);
         const target = Object.assign({}, a.x < b.x ? b : a);
-        source.x += 150;
-        source.y += 50;
-        target.x += 150;
-        target.y += 50;
+        const sourceText = source.label.split(/\n/);
+        const targetText = target.label.split(/\n/);
+        source.x += Math.max(sourceText.map(t => tx.length)) * 3;
+        source.y += sourceText.length * 5;
+        target.x += Math.max(targetText.map(t => tx.length)) * 3;
+        target.y += targetText.length * 5;
         const w = target.x - source.x;
         const h = target.y - source.y;
 
@@ -106,7 +150,6 @@
           length: Math.sqrt(w * w + h * h),
           deg: (Math.atan2(h, w) * 360) / (2 * Math.PI),
         };
-        lineCache[`${a.x}:${a.y}:${b.x}:${b.y}`] = result;
         return result;
       }
 
@@ -183,7 +226,8 @@
             return darkColors[d.index % darkColors.length];
           })
           .text(function (d) {
-            return d.sql;
+            d.label = d.open ? d.sql : d.name;
+            return d.label;
           })
           .call(
             d3
@@ -192,6 +236,12 @@
                 if (!d3.event.active) simulation.alphaTarget(0.3).restart();
                 d.fx = d.x;
                 d.fy = d.y;
+                d.open = true;
+                d.focus = true;
+                node.text(function (d) {
+                  d.label = d.open ? d.sql : d.name;
+                  return d.label;
+                });
               })
               .on("drag", function (d) {
                 d.fx = d3.event.x;
@@ -255,7 +305,7 @@
             })
             .style("top", function (d) {
               return `${d.y}px`;
-            });
+            })
         });
       }
     </script>

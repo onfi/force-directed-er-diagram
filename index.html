@@ -23,6 +23,7 @@
         padding: 3px;
         white-space: pre;
         font-size: 11px;
+        cursor: pointer;
       }
 
       textarea {
@@ -32,20 +33,77 @@
     </style>
   </head>
 
-  <body>
-    <button>DRAW</button>
+  <body style="padding: 0;">
+    <header style="width: 100vw; height: 100vh; position: fixed; margin: 0; left: 0; top: 0;"></header>
+    <button>DRAW</button
+    ><label style="left: 100px"
+      ><input type="checkbox" id="oracle" value="oracle" style="left: -20px" />
+      oracle</label
+    >
     <textarea placeholder="input DDL" style="top: 30px"></textarea>
     <main style="width: 100vw; height: 100vh; display: none"></main>
     <script src="https://d3js.org/d3.v5.min.js"></script>
-    <script src="https://unpkg.com/mysqldump-ddl-parser@0.0.3/dist/mysqldump-ddl-parser.min.js"></script>
+    <script src="https://unpkg.com/mysqldump-ddl-parser@0.0.5/dist/mysqldump-ddl-parser.min.js"></script>
     <script src="https://unpkg.com/pluralize@8.0.0/pluralize.js"></script>
     <script>
       const button = document.querySelector("button");
       const textarea = document.querySelector("textarea");
       const main = document.querySelector("main");
+      const body = document.querySelector("body");
+      const oracle = document.querySelector("#oracle");
+      const zoom = {
+        zoom: 1,
+        x: 0,
+        y: 0,
+        prev: {
+          x: null,
+          y: null,
+        },
+      };
+      function setZoom() {
+        main.style.transform = `translate(${zoom.x}px, ${zoom.y}px) scale(${zoom.zoom})`;
+      }
+      function zoomin(event) {
+        zoom.zoom =
+          zoom.zoom * (1 - event.deltaY / Math.abs(event.deltaY) / 10);
+        setZoom();
+      }
+      function resetMoveState(event) {
+        zoom.prev.x = event.x;
+        zoom.prev.y = event.y;
+      }
+      function move(event) {
+        if (zoom.prev.x) {
+          zoom.x = zoom.x + event.x - zoom.prev.x;
+          zoom.y = zoom.y + event.y - zoom.prev.y;
+          resetMoveState(event);
+          setZoom();
+        }
+      }
+      function finishMove(event) {
+        zoom.prev.x = null;
+        zoom.prev.y = null;
+      }
+      body.addEventListener("mousedown", resetMoveState);
+      body.addEventListener("mousemove", move);
+      body.addEventListener("mouseup", finishMove);
+      body.addEventListener("wheel", zoomin);
+      main.addEventListener("mousedown", resetMoveState);
+      main.addEventListener("mousemove", move);
+      main.addEventListener("mouseup", finishMove);
+      main.addEventListener("wheel", zoomin);
       button.addEventListener("click", function () {
-        const tables = setIndex(MysqldumpDdlParser(textarea.value));
-        textarea.style.display = button.style.display = "none";
+        let tables;
+        if (oracle.checked) {
+          tables = MysqldumpDdlParser(textarea.value, "oracle");
+        } else {
+          tables = MysqldumpDdlParser(textarea.value);
+        }
+        tables = setIndex(tables);
+        document.querySelector("label").style.display =
+          textarea.style.display =
+          button.style.display =
+            "none";
         main.style.display = "block";
         const relations = [];
         Object.keys(tables).forEach((key) => {
@@ -83,20 +141,15 @@
         const keys = Object.keys(obj);
         for (let i = 0; i < keys.length; i++) {
           result[keys[i]].index = i;
+          result[keys[i]].open = false;
+          result[keys[i]].focus = false;
         }
         return obj;
       }
 
-      const lineCache = {};
       function calcLine(a, b) {
-        if (lineCache[`${a.x}:${a.y}:${b.x}:${b.y}`])
-          return lineCache[`${a.x}:${a.y}:${b.x}:${b.y}`];
         const source = Object.assign({}, a.x < b.x ? a : b);
         const target = Object.assign({}, a.x < b.x ? b : a);
-        source.x += 150;
-        source.y += 50;
-        target.x += 150;
-        target.y += 50;
         const w = target.x - source.x;
         const h = target.y - source.y;
 
@@ -106,7 +159,6 @@
           length: Math.sqrt(w * w + h * h),
           deg: (Math.atan2(h, w) * 360) / (2 * Math.PI),
         };
-        lineCache[`${a.x}:${a.y}:${b.x}:${b.y}`] = result;
         return result;
       }
 
@@ -163,6 +215,13 @@
         "#612C37",
       ];
       function draw(nodes, links) {
+        const linkMap = {};
+        links.forEach((l) => {
+          if (!linkMap[l.source]) linkMap[l.source] = [];
+          linkMap[l.source].push(l.target);
+          if (!linkMap[l.target]) linkMap[l.target] = [];
+          linkMap[l.target].push(l.source);
+        });
         const link = d3
           .select("main")
           .selectAll("div")
@@ -183,7 +242,38 @@
             return darkColors[d.index % darkColors.length];
           })
           .text(function (d) {
-            return d.sql;
+            d.label = d.open ? d.sql : d.name;
+            return d.label;
+          })
+          .on("click", function (d) {
+            d.focus = !d.focus;
+            d.open = d.focus;
+            linkMap[d.index].forEach((t) => {
+              nodes[t].open = nodes[t].focus || d.focus;
+            });
+            node.text(function (d) {
+              d.label = d.open ? d.sql : d.name;
+              return d.label;
+            });
+            // setTimeout(function() {
+            //   if(nodes.some(n => n.focus)) {
+            //     simulation.stop();
+            //   }
+            // }, 1500);
+            simulation.force(
+              "collide",
+              d3
+                .forceCollide()
+                .radius(function (d) {
+                  if (d.open) {
+                    return 200;
+                  } else {
+                    return 80;
+                  }
+                })
+                .strength(0.3)
+                .iterations(10)
+            );
           })
           .call(
             d3
@@ -197,30 +287,50 @@
                 d.fx = d3.event.x;
                 d.fy = d3.event.y;
               })
-              // .on("end", function (d) {
-              //   d.fx = null;
-              //   d.fy = null;
-              // })
+            .on("end", function (d) {
+              d.fx = null;
+              d.fy = null;
+            })
           );
 
         const simulation = d3.forceSimulation();
         simulation
-          .velocityDecay(0.2)
+          .velocityDecay(0.9)
           .force("link", d3.forceLink())
           .force(
             "collide",
             d3
               .forceCollide()
               .radius(function (d) {
-                return 270;
+                if (d.open) {
+                  return 200;
+                } else {
+                  return 30;
+                }
               })
               .strength(0.3)
-              .iterations(30)
+              .iterations(10)
           )
-          .force("charge", d3.forceManyBody().strength(-50000))
-          .force("center", d3.forceCenter(2000, 2000))
-          .force("collision", d3.forceCollide(200))  
-          .force("x", d3.forceX().x(1000).strength(0.7)).force("y", d3.forceY().y(1000).strength(0.7));
+          .force("charge", d3.forceManyBody().strength(-50))
+          .force(
+            "center",
+            d3.forceCenter(main.clientWidth / 2, main.clientHeight / 2)
+          )
+          .force("collision", d3.forceCollide(20))
+          .force(
+            "x",
+            d3
+              .forceX()
+              .x(main.clientWidth / 2)
+              .strength(0.3)
+          )
+          .force(
+            "y",
+            d3
+              .forceY()
+              .y(main.clientHeight / 2)
+              .strength(0.3)
+          );
 
         simulation.nodes(nodes);
 
@@ -245,16 +355,22 @@
               const line = calcLine(d.source, d.target);
               return `${line.length}px`;
             })
+            .style("height", function (d) {
+              return `${d.target.focus || d.source.focus ? 5 : 1}px`;
+            })
             .style("transform", function (d) {
               const line = calcLine(d.source, d.target);
               return `rotateZ(${line.deg}deg) translate(${line.length / 2}px)`;
             });
           node
             .style("left", function (d) {
-              return `${d.x}px`;
+              return `${
+                d.x -
+                Math.max(...d.label.split(/\n/).map((line) => line.length)) * 3
+              }px`;
             })
             .style("top", function (d) {
-              return `${d.y}px`;
+              return `${d.y - d.label.split(/n/).length * 3}px`;
             });
         });
       }

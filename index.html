@@ -45,6 +45,7 @@
     <script src="https://d3js.org/d3.v5.min.js"></script>
     <script src="https://unpkg.com/mysqldump-ddl-parser@0.0.5/dist/mysqldump-ddl-parser.min.js"></script>
     <script src="https://unpkg.com/pluralize@8.0.0/pluralize.js"></script>
+    <script src="force.js"></script>
     <script>
       const button = document.querySelector("button");
       const textarea = document.querySelector("textarea");
@@ -87,6 +88,10 @@
       body.addEventListener("mousedown", resetMoveState);
       body.addEventListener("mousemove", move);
       body.addEventListener("mouseup", finishMove);
+      body.addEventListener("touchstart", resetMoveState);
+      body.addEventListener("touchmove", move);
+      body.addEventListener("touchend", finishMove);
+      body.addEventListener("mouseleave", finishMove);
       body.addEventListener("wheel", zoomin);
       main.addEventListener("mousedown", resetMoveState);
       main.addEventListener("mousemove", move);
@@ -135,7 +140,6 @@
           }))
         );
       });
-
       function setIndex(obj) {
         const result = Object.assign({}, obj);
         const keys = Object.keys(obj);
@@ -145,234 +149,6 @@
           result[keys[i]].focus = false;
         }
         return obj;
-      }
-
-      function calcLine(a, b) {
-        const source = Object.assign({}, a.x < b.x ? a : b);
-        const target = Object.assign({}, a.x < b.x ? b : a);
-        const w = target.x - source.x;
-        const h = target.y - source.y;
-
-        const result = {
-          x: source.x,
-          y: source.y,
-          length: Math.sqrt(w * w + h * h),
-          deg: (Math.atan2(h, w) * 360) / (2 * Math.PI),
-        };
-        return result;
-      }
-
-      const colors = [
-        "#9F1B34",
-        "#A21E1B",
-        "#A53B1B",
-        "#A84E0E",
-        "#AA6600",
-        "#A77B00",
-        "#A48F00",
-        "#918E00",
-        "#717D00",
-        "#147600",
-        "#006F3E",
-        "#00694E",
-        "#00625C",
-        "#005E69",
-        "#00526F",
-        "#004972",
-        "#004075",
-        "#1A3374",
-        "#343472",
-        "#482D69",
-        "#5A265F",
-        "#70245F",
-        "#811F4C",
-        "#901E43",
-      ];
-      const darkColors = [
-        "#642A2E",
-        "#6A2E28",
-        "#6F3826",
-        "#704020",
-        "#704B1A",
-        "#6E551B",
-        "#6B5E1B",
-        "#615C19",
-        "#535617",
-        "#235418",
-        "#185138",
-        "#0B4B3C",
-        "#004542",
-        "#00464C",
-        "#004252",
-        "#0A3A50",
-        "#14344E",
-        "#212B4E",
-        "#312E4D",
-        "#3A2C49",
-        "#422944",
-        "#512C46",
-        "#5D2D3F",
-        "#612C37",
-      ];
-      function draw(nodes, links) {
-        const linkMap = {};
-        links.forEach((l) => {
-          if (!linkMap[l.source]) linkMap[l.source] = [];
-          linkMap[l.source].push(l.target);
-          if (!linkMap[l.target]) linkMap[l.target] = [];
-          linkMap[l.target].push(l.source);
-        });
-        const link = d3
-          .select("main")
-          .selectAll("div")
-          .data(links)
-          .enter()
-          .append("div")
-          .style("background-color", function (d) {
-            return colors[d.target % colors.length];
-          });
-
-        const node = d3
-          .select("main")
-          .selectAll("code")
-          .data(nodes)
-          .enter()
-          .append("code")
-          .style("background-color", function (d) {
-            return darkColors[d.index % darkColors.length];
-          })
-          .text(function (d) {
-            d.label = d.open ? d.sql : d.name;
-            return d.label;
-          })
-          .on("click", function (d) {
-            d.focus = !d.focus;
-            d.open = d.focus;
-            linkMap[d.index].forEach((t) => {
-              nodes[t].open = nodes[t].focus || d.focus;
-            });
-            node.text(function (d) {
-              d.label = d.open ? d.sql : d.name;
-              return d.label;
-            });
-            // setTimeout(function() {
-            //   if(nodes.some(n => n.focus)) {
-            //     simulation.stop();
-            //   }
-            // }, 1500);
-            simulation.force(
-              "collide",
-              d3
-                .forceCollide()
-                .radius(function (d) {
-                  if (d.open) {
-                    return 200;
-                  } else {
-                    return 80;
-                  }
-                })
-                .strength(0.3)
-                .iterations(10)
-            );
-          })
-          .call(
-            d3
-              .drag()
-              .on("start", function (d) {
-                if (!d3.event.active) simulation.alphaTarget(0.3).restart();
-                d.fx = d.x;
-                d.fy = d.y;
-              })
-              .on("drag", function (d) {
-                d.fx = d3.event.x;
-                d.fy = d3.event.y;
-              })
-            .on("end", function (d) {
-              d.fx = null;
-              d.fy = null;
-            })
-          );
-
-        const simulation = d3.forceSimulation();
-        simulation
-          .velocityDecay(0.9)
-          .force("link", d3.forceLink())
-          .force(
-            "collide",
-            d3
-              .forceCollide()
-              .radius(function (d) {
-                if (d.open) {
-                  return 200;
-                } else {
-                  return 30;
-                }
-              })
-              .strength(0.3)
-              .iterations(10)
-          )
-          .force("charge", d3.forceManyBody().strength(-50))
-          .force(
-            "center",
-            d3.forceCenter(main.clientWidth / 2, main.clientHeight / 2)
-          )
-          .force("collision", d3.forceCollide(20))
-          .force(
-            "x",
-            d3
-              .forceX()
-              .x(main.clientWidth / 2)
-              .strength(0.3)
-          )
-          .force(
-            "y",
-            d3
-              .forceY()
-              .y(main.clientHeight / 2)
-              .strength(0.3)
-          );
-
-        simulation.nodes(nodes);
-
-        simulation
-          .force("link")
-          .links(links)
-          .distance(function (d) {
-            return 100;
-          });
-
-        simulation.on("tick", function () {
-          link
-            .style("left", function (d) {
-              const line = calcLine(d.source, d.target);
-              return line.x - line.length / 2 + "px";
-            })
-            .style("top", function (d) {
-              const line = calcLine(d.source, d.target);
-              return line.y + "px";
-            })
-            .style("width", function (d) {
-              const line = calcLine(d.source, d.target);
-              return `${line.length}px`;
-            })
-            .style("height", function (d) {
-              return `${d.target.focus || d.source.focus ? 5 : 1}px`;
-            })
-            .style("transform", function (d) {
-              const line = calcLine(d.source, d.target);
-              return `rotateZ(${line.deg}deg) translate(${line.length / 2}px)`;
-            });
-          node
-            .style("left", function (d) {
-              return `${
-                d.x -
-                Math.max(...d.label.split(/\n/).map((line) => line.length)) * 3
-              }px`;
-            })
-            .style("top", function (d) {
-              return `${d.y - d.label.split(/n/).length * 3}px`;
-            });
-        });
       }
     </script>
   </body>

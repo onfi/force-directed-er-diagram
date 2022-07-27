@@ -14,31 +14,30 @@ function calcLine(a, b) {
 }
 
 const colors = [
-	'#D75674',
-	'#F15D69',
-	'#F16056',
-	'#F7774D',
-	'#FB8D3D',
-	'#FBA52F',
-	'#F9BB2B',
-	'#F2D324',
-	'#D9C81B',
-	'#B7BF19',
-	'#76BB4C',
-	'#00B275',
-	'#00A583',
-	'#00A39B',
-	'#0094A1',
-	'#008FB3',
-	'#007DAF',
-	'#1979BA',
-	'#4D73BB',
-	'#716BB6',
-	'#8B63AC',
-	'#9C5DA0',
-	'#AB5792',
-	'#CC5C87',
-	
+  "#D75674",
+  "#F15D69",
+  "#F16056",
+  "#F7774D",
+  "#FB8D3D",
+  "#FBA52F",
+  "#F9BB2B",
+  "#F2D324",
+  "#D9C81B",
+  "#B7BF19",
+  "#76BB4C",
+  "#00B275",
+  "#00A583",
+  "#00A39B",
+  "#0094A1",
+  "#008FB3",
+  "#007DAF",
+  "#1979BA",
+  "#4D73BB",
+  "#716BB6",
+  "#8B63AC",
+  "#9C5DA0",
+  "#AB5792",
+  "#CC5C87",
 ];
 const darkColors = [
   "#642A2E",
@@ -71,99 +70,28 @@ const param = {
   collide: {
     radius: function (d) {
       if (d.open) {
-        return 240;
+        return 200;
       } else {
-        return 40;
+        return 60;
       }
     },
     strength: 0.3,
   },
   collision: 20,
   charge: {
-    strength: -400,
+    strength: -800,
   },
   force: {
     strength: 0.3,
   },
 };
-let simulation;
-let simulationLink;
-let stopTimer;
-function start() {
-  if (stoping) return;
-  simulation
-    .velocityDecay(0.4)
-    .force("link", d3.forceLink())
-    .force(
-      "collide",
-      d3
-        .forceCollide()
-        .radius(param.collide.radius)
-        .strength(param.collide.strength)
-        .iterations(10)
-    )
-    .force("charge", d3.forceManyBody().strength(param.charge.strength))
-    .force(
-      "center",
-      d3.forceCenter(main.clientWidth / 2, main.clientHeight / 2)
-    )
-    .force("collision", d3.forceCollide(param.collision))
-    .force(
-      "x",
-      d3
-        .forceX()
-        .x(main.clientWidth / 2)
-        .strength(param.force.strength)
-    )
-    .force(
-      "y",
-      d3
-        .forceY()
-        .y(main.clientHeight / 2)
-        .strength(param.force.strength)
-    );
-  if (simulationLink)
-    simulationLink.distance(function (d) {
-      if (d.source.focus || d.target.focus) {
-        return 20;
-      } else {
-        return 200;
-      }
-    }).strength(function (d) {
-		if (d.source.focus || d.target.focus) {
-		  return 1000;
-		} else {
-		  return 20;
-		}
-	});
-  simulation.restart();
-}
-function stop() {
-  stoping = true;
-  simulation.stop();
-}
-function text(d) {
-  if (d.open) {
-    const label = [d.name];
-    d.columns.forEach((column) => {
-      label.push(
-        `  ${column.name} ${column.type}${column.notNull ? " NOT NULL" : ""}${
-          column.autoIncrement ? " AUTO_INCREMENT" : ""
-        }${column.default ? " DEFAULT " + column.default : ""}`
-      );
-    });
-    d.label = label.join("\n");
-  } else {
-    d.label = d.name;
-  }
-  return d.label;
-}
 function draw(nodes, links) {
+  let stopTimer = false;
   const linkMap = {};
   links.forEach((l) => {
-    if (!linkMap[l.source]) linkMap[l.source] = [];
+    linkMap[l.source] ??= [];
     linkMap[l.source].push(l.target);
-    if (!linkMap[l.target]) linkMap[l.target] = [];
+    linkMap[l.target] ??= [];
     linkMap[l.target].push(l.source);
   });
   const link = d3
@@ -185,27 +113,17 @@ function draw(nodes, links) {
     .style("background-color", function (d) {
       return darkColors[d.index % darkColors.length];
     })
-    .text(text)
     .on("click", function (d) {
       stoping = false;
       d.focus = !d.focus;
       d.open = d.focus;
-      (linkMap[d.index] || []).forEach((t) => {
+      linkMap[d.index]?.forEach((t) => {
         nodes[t].open = nodes[t].focus || d.focus;
         if (!nodes[t].open) {
           d.fx = null;
           d.fy = null;
         }
       });
-      node.text(text).style("border", function (d) {
-        if (d.focus) {
-          return `5px solid ${colors[d.index % colors.length]}`;
-        }
-        return null;
-      }).style("z-index", function (d) {
-        return d.open ? 1 : null;
-      });
-
       if (stopTimer) clearTimeout(stopTimer);
       stopTimer = setTimeout(function () {
         if (nodes.some((n) => n.focus)) {
@@ -232,15 +150,69 @@ function draw(nodes, links) {
           //   d.fy = null;
         })
     );
-  simulation = d3.forceSimulation();
-  start();
+  const simulation = d3
+    .forceSimulation()
+    .velocityDecay(0.8)
+    .force(
+      "center",
+      d3.forceCenter(main.clientWidth / 2, main.clientHeight / 2)
+    )
+    .force(
+      "x",
+      d3
+        .forceX()
+        .x(main.clientWidth / 2)
+        .strength(param.force.strength)
+    )
+    .force(
+      "y",
+      d3
+        .forceY()
+        .y(main.clientHeight / 2)
+        .strength(param.force.strength)
+    )
+    .force("link", d3.forceLink())
+    .force("charge", d3.forceManyBody().strength(param.charge.strength));
 
   simulation.nodes(nodes);
 
-  simulationLink = simulation.force("link").links(links);
+  simulation.force("link").links(links);
   start();
 
-  simulation.on("tick", function () {
+  simulation.on("tick", tick);
+
+  function start() {
+    if (stoping) return;
+    simulation.force("collision", d3.forceCollide(param.collision));
+    node
+      .text(text)
+      .style("border", function (d) {
+        if (d.focus) {
+          return `5px solid ${colors[d.index % colors.length]}`;
+        }
+        return null;
+      })
+      .style("z-index", function (d) {
+        return d.open ? 1 : null;
+      });
+
+    simulation.force(
+      "collide",
+      d3
+        .forceCollide()
+        .radius(param.collide.radius)
+        .strength(param.collide.strength)
+        .iterations(10)
+    );
+    simulation.restart();
+  }
+
+  function stop() {
+    stoping = true;
+    simulation.stop();
+  }
+
+  function tick() {
     link
       .style("left", function (d) {
         const line = calcLine(d.source, d.target);
@@ -270,5 +242,21 @@ function draw(nodes, links) {
       .style("top", function (d) {
         return `${d.y - d.label.split(/n/).length * 3}px`;
       });
-  });
+  }
+  function text(d) {
+    if (d.open) {
+      const label = [d.name];
+      d.columns.forEach((column) => {
+        label.push(
+          `  ${column.name} ${column.type}${column.notNull ? " NOT NULL" : ""}${
+            column.autoIncrement ? " AUTO_INCREMENT" : ""
+          }${column.default ? " DEFAULT " + column.default : ""}`
+        );
+      });
+      d.label = label.join("\n");
+    } else {
+      d.label = d.name;
+    }
+    return d.label;
+  }
 }

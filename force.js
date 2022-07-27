@@ -202,6 +202,8 @@ function draw(nodes, links) {
           return `5px solid ${colors[d.index % colors.length]}`;
         }
         return null;
+      }).style("z-index", function (d) {
+        return d.open ? 1 : null;
       });
 
       if (stopTimer) clearTimeout(stopTimer);

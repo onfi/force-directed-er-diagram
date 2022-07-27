@@ -254,7 +254,7 @@ function draw(nodes, links) {
         label.push(
           `  ${column.name} ${column.type}${column.notNull ? " NOT NULL" : ""}${
             column.autoIncrement ? " AUTO_INCREMENT" : ""
-          }${column.default ? " DEFAULT " + column.default : ""}`
+          }${column.default ? " DEFAULT " + column.default.replace(/,$/, '') : ""}`
         );
       });
       d.label = label.join("\n");

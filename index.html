@@ -35,10 +35,7 @@
 
   <body style="padding: 0;">
     <header style="width: 100vw; height: 100vh; position: fixed; margin: 0; left: 0; top: 0;"></header>
-    <button>DRAW</button
-    ><label style="left: 100px"
-      ><input type="checkbox" id="oracle" value="oracle" style="left: -20px" />
-      oracle</label
+    <button>RENDER</button
     >
     <textarea placeholder="input DDL" style="top: 30px"></textarea>
     <main style="width: 100vw; height: 100vh; display: none"></main>
@@ -51,7 +48,6 @@
       const textarea = document.querySelector("textarea");
       const main = document.querySelector("main");
       const body = document.querySelector("body");
-      const oracle = document.querySelector("#oracle");
       const zoom = {
         zoom: 1,
         x: 0,
@@ -98,15 +94,8 @@
       main.addEventListener("mouseup", finishMove);
       main.addEventListener("wheel", zoomin);
       button.addEventListener("click", function () {
-        let tables;
-        if (oracle.checked) {
-          tables = MysqldumpDdlParser(textarea.value, "oracle");
-        } else {
-          tables = MysqldumpDdlParser(textarea.value);
-        }
-        tables = setIndex(tables);
-        document.querySelector("label").style.display =
-          textarea.style.display =
+        const tables = setIndex(MysqldumpDdlParser(textarea.value, textarea.value.match(/"\."/) ? "oracle" : 'mysql'));
+        textarea.style.display =
           button.style.display =
             "none";
         main.style.display = "block";
@@ -128,7 +117,7 @@
             }
           });
         });
-        const nodes = [];
+        nodes = [];
         Object.keys(tables).forEach((key) => {
           nodes[tables[key].index] = tables[key];
         });

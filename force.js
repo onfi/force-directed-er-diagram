@@ -1,91 +1,76 @@
-function calcLine(a, b) {
-  const source = Object.assign({}, a.x < b.x ? a : b);
-  const target = Object.assign({}, a.x < b.x ? b : a);
-  const w = target.x - source.x;
-  const h = target.y - source.y;
-
-  const result = {
-    x: source.x,
-    y: source.y,
-    length: Math.sqrt(w * w + h * h),
-    deg: (Math.atan2(h, w) * 360) / (2 * Math.PI),
-  };
-  return result;
-}
-
-const colors = [
-  "#D75674",
-  "#F15D69",
-  "#F16056",
-  "#F7774D",
-  "#FB8D3D",
-  "#FBA52F",
-  "#F9BB2B",
-  "#F2D324",
-  "#D9C81B",
-  "#B7BF19",
-  "#76BB4C",
-  "#00B275",
-  "#00A583",
-  "#00A39B",
-  "#0094A1",
-  "#008FB3",
-  "#007DAF",
-  "#1979BA",
-  "#4D73BB",
-  "#716BB6",
-  "#8B63AC",
-  "#9C5DA0",
-  "#AB5792",
-  "#CC5C87",
-];
-const darkColors = [
-  "#642A2E",
-  "#6A2E28",
-  "#6F3826",
-  "#704020",
-  "#704B1A",
-  "#6E551B",
-  "#6B5E1B",
-  "#615C19",
-  "#535617",
-  "#235418",
-  "#185138",
-  "#0B4B3C",
-  "#004542",
-  "#00464C",
-  "#004252",
-  "#0A3A50",
-  "#14344E",
-  "#212B4E",
-  "#312E4D",
-  "#3A2C49",
-  "#422944",
-  "#512C46",
-  "#5D2D3F",
-  "#612C37",
-];
-let stoping = false;
-const param = {
-  collide: {
-    radius: function (d) {
-      if (d.open) {
-        return 200;
-      } else {
-        return 60;
-      }
-    },
-    strength: 0.3,
-  },
-  collision: 20,
-  charge: {
-    strength: -800,
-  },
-  force: {
-    strength: 0.3,
-  },
-};
 function draw(nodes, links) {
+  const colors = [
+    "#D75674",
+    "#F15D69",
+    "#F16056",
+    "#F7774D",
+    "#FB8D3D",
+    "#FBA52F",
+    "#F9BB2B",
+    "#F2D324",
+    "#D9C81B",
+    "#B7BF19",
+    "#76BB4C",
+    "#00B275",
+    "#00A583",
+    "#00A39B",
+    "#0094A1",
+    "#008FB3",
+    "#007DAF",
+    "#1979BA",
+    "#4D73BB",
+    "#716BB6",
+    "#8B63AC",
+    "#9C5DA0",
+    "#AB5792",
+    "#CC5C87",
+  ];
+  const darkColors = [
+    "#642A2E",
+    "#6A2E28",
+    "#6F3826",
+    "#704020",
+    "#704B1A",
+    "#6E551B",
+    "#6B5E1B",
+    "#615C19",
+    "#535617",
+    "#235418",
+    "#185138",
+    "#0B4B3C",
+    "#004542",
+    "#00464C",
+    "#004252",
+    "#0A3A50",
+    "#14344E",
+    "#212B4E",
+    "#312E4D",
+    "#3A2C49",
+    "#422944",
+    "#512C46",
+    "#5D2D3F",
+    "#612C37",
+  ];
+  let stoping = false;
+  const param = {
+    collide: {
+      radius: function (d) {
+        if (d.open) {
+          return 200;
+        } else {
+          return 60;
+        }
+      },
+      strength: 0.3,
+    },
+    collision: 20,
+    charge: {
+      strength: -800,
+    },
+    force: {
+      strength: 0.3,
+    },
+  };
   let stopTimer = false;
   const linkMap = {};
   links.forEach((l) => {
@@ -211,7 +196,26 @@ function draw(nodes, links) {
     stoping = true;
     simulation.stop();
   }
-
+  const lineCache = {}
+  function cacheKey(a, b) {
+    return `${a.x}:${a.y}-${b.x}:${b.y}`
+  }
+  function calcLine(a, b) {
+    if(!lineCache[cacheKey(a, b)]) {
+      const source = Object.assign({}, a.x < b.x ? a : b);
+      const target = Object.assign({}, a.x < b.x ? b : a);
+      const w = target.x - source.x;
+      const h = target.y - source.y;
+    
+      lineCache[cacheKey(a, b)] = {
+        x: source.x,
+        y: source.y,
+        length: Math.sqrt(w * w + h * h),
+        deg: (Math.atan2(h, w) * 360) / (2 * Math.PI),
+      };
+    }
+    return lineCache[cacheKey(a, b)];
+  }
   function tick() {
     link
       .style("left", function (d) {

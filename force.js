@@ -200,21 +200,23 @@ function draw(nodes, links) {
   function cacheKey(a, b) {
     return `${a.x}:${a.y}-${b.x}:${b.y}`
   }
+  function _calcLine(source, target) {
+    const dx = target.x - source.x;
+    const dy = target.y - source.y;
+  
+    return {
+      x: source.x,
+      y: source.y,
+      length: Math.sqrt(dx ** 2 + dy ** 2),
+      deg: Math.atan2(dy, dx) * 180 / Math.PI,
+    };
+  }
   function calcLine(a, b) {
-    if(!lineCache[cacheKey(a, b)]) {
-      const source = Object.assign({}, a.x < b.x ? a : b);
-      const target = Object.assign({}, a.x < b.x ? b : a);
-      const w = target.x - source.x;
-      const h = target.y - source.y;
-    
-      lineCache[cacheKey(a, b)] = {
-        x: source.x,
-        y: source.y,
-        length: Math.sqrt(w * w + h * h),
-        deg: (Math.atan2(h, w) * 360) / (2 * Math.PI),
-      };
-    }
-    return lineCache[cacheKey(a, b)];
+    const source = a.x < b.x ? a : b;
+    const target = a.x < b.x ? b : a;
+    if(!lineCache[cacheKey(source, target)])
+      lineCache[cacheKey(source, target)] = _calcLine(source, target);
+    return lineCache[cacheKey(source, target)];
   }
   function tick() {
     link
